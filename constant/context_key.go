@@ -52,6 +52,10 @@ const (
 	ContextKeyUsingGroup  ContextKey = "group"
 	ContextKeyUserName    ContextKey = "username"
 
+	/* agent (分站) related keys */
+	ContextKeyIsAgentRequest ContextKey = "is_agent_request"
+	ContextKeyAgentId        ContextKey = "agent_id"
+
 	ContextKeyLocalCountTokens ContextKey = "local_count_tokens"
 
 	ContextKeySystemPromptOverride ContextKey = "system_prompt_override"

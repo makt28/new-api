@@ -366,7 +366,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, summary.Quota)
+		// 分站请求不写真实用户统计（UserId 为 0），仅更新渠道用量。
+		if !relayInfo.IsAgentRequest {
+			model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, summary.Quota)
+		}
 		model.UpdateChannelUsedQuota(relayInfo.ChannelId, summary.Quota)
 	}
 
@@ -459,20 +462,36 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		InjectTieredBillingInfo(other, relayInfo, tieredResult)
 	}
 
-	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		ChannelId:        relayInfo.ChannelId,
-		PromptTokens:     summary.PromptTokens,
-		CompletionTokens: summary.CompletionTokens,
-		ModelName:        logModel,
-		TokenName:        summary.TokenName,
-		Quota:            summary.Quota,
-		Content:          logContent,
-		TokenId:          relayInfo.TokenId,
-		UseTimeSeconds:   int(summary.UseTimeSeconds),
-		IsStream:         relayInfo.IsStream,
-		Group:            relayInfo.UsingGroup,
-		Other:            other,
-	})
+	if relayInfo.IsAgentRequest {
+		// 分站消费流水落到独立的 agent_logs 表，不污染主站 logs。
+		model.RecordAgentLog(&model.AgentLog{
+			AgentId:          relayInfo.AgentId,
+			ModelName:        logModel,
+			PromptTokens:     summary.PromptTokens,
+			CompletionTokens: summary.CompletionTokens,
+			Quota:            summary.Quota,
+			ChannelId:        relayInfo.ChannelId,
+			UseTimeSeconds:   int(summary.UseTimeSeconds),
+			IsStream:         relayInfo.IsStream,
+			Content:          logContent,
+		})
+		model.UpdateAgentUsed(relayInfo.AgentId, summary.Quota)
+	} else {
+		model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
+			ChannelId:        relayInfo.ChannelId,
+			PromptTokens:     summary.PromptTokens,
+			CompletionTokens: summary.CompletionTokens,
+			ModelName:        logModel,
+			TokenName:        summary.TokenName,
+			Quota:            summary.Quota,
+			Content:          logContent,
+			TokenId:          relayInfo.TokenId,
+			UseTimeSeconds:   int(summary.UseTimeSeconds),
+			IsStream:         relayInfo.IsStream,
+			Group:            relayInfo.UsingGroup,
+			Other:            other,
+		})
+	}
 	gopool.Go(func() {
 		perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))
 	})

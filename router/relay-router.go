@@ -165,6 +165,34 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.DELETE("/models/:model", controller.RelayNotImplemented)
 	}
 
+	// 分站（代理）专用 relay 入口：分站程序携带 AgentKey 调用，
+	// 计费走 Agent.Balance，完全复用现有 relay 引擎，不触碰 users/tokens。
+	agentRelayRouter := router.Group("/agentapi/v1")
+	agentRelayRouter.Use(middleware.RouteTag("relay"))
+	agentRelayRouter.Use(middleware.SystemPerformanceCheck())
+	agentRelayRouter.Use(middleware.AgentAuth())
+	agentRelayRouter.Use(middleware.Distribute())
+	{
+		agentRelayRouter.POST("/chat/completions", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAI)
+		})
+		agentRelayRouter.POST("/completions", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAI)
+		})
+		agentRelayRouter.POST("/messages", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatClaude)
+		})
+		agentRelayRouter.POST("/responses", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAIResponses)
+		})
+		agentRelayRouter.POST("/embeddings", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatEmbedding)
+		})
+		agentRelayRouter.POST("/rerank", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatRerank)
+		})
+	}
+
 	relayMjRouter := router.Group("/mj")
 	relayMjRouter.Use(middleware.RouteTag("relay"))
 	relayMjRouter.Use(middleware.SystemPerformanceCheck())

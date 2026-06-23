@@ -302,6 +302,25 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
 		}
+		// 分站（代理）管理：仅管理员可增删改查与充值。
+		agentRoute := apiRouter.Group("/agent")
+		agentRoute.Use(middleware.AdminAuth())
+		{
+			agentRoute.GET("/", controller.GetAllAgents)
+			agentRoute.GET("/logs", controller.GetAgentLogs)
+			agentRoute.GET("/:id", controller.GetAgent)
+			agentRoute.POST("/", controller.CreateAgent)
+			agentRoute.PUT("/", controller.UpdateAgent)
+			agentRoute.POST("/topup", controller.TopUpAgent)
+			agentRoute.DELETE("/:id", controller.DeleteAgent)
+		}
+		// 分站程序自查余额/用量：用 AgentKey 鉴权。
+		agentSelfRoute := apiRouter.Group("/agent-self")
+		agentSelfRoute.Use(middleware.AgentAuth())
+		{
+			agentSelfRoute.GET("/", controller.GetAgentSelf)
+		}
+
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		// Legacy synchronous direct-delete route used only by the classic frontend.

@@ -86,6 +86,10 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	// IsAgentRequest 标记该请求来自分站（代理）。为 true 时计费走 AgentFunding，
+	// 直接扣减 Agent.Balance，且不触碰 users / tokens / logs 表。
+	IsAgentRequest    bool
+	AgentId           int
 	TokenId           int
 	TokenKey          string
 	TokenGroup        string
@@ -464,8 +468,10 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	info := &RelayInfo{
 		Request: request,
 
-		RequestId:  reqId,
-		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		RequestId:      reqId,
+		IsAgentRequest: common.GetContextKeyBool(c, constant.ContextKeyIsAgentRequest),
+		AgentId:        common.GetContextKeyInt(c, constant.ContextKeyAgentId),
+		UserId:         common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
 		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
