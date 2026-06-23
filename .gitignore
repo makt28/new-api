@@ -39,3 +39,7 @@ skills-lock.json
 
 # 二开本地说明文档（不纳入版本库）
 CLAUDE.agent.md
+
+# 分站(agent)联调测试脚手架（本地，不纳入版本库）
+_test/
+Dockerfile.agent

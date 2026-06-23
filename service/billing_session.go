@@ -141,6 +141,10 @@ func (s *BillingSession) needsRefundLocked() bool {
 	if sub, ok := s.funding.(*SubscriptionFunding); ok && sub.preConsumed > 0 {
 		return true
 	}
+	// 分站没有令牌额度（tokenConsumed 恒为 0），但 AgentFunding 可能已预扣，需退还
+	if af, ok := s.funding.(*AgentFunding); ok && af.consumed > 0 {
+		return true
+	}
 	return false
 }
 
