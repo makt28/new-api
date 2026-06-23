@@ -319,6 +319,23 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 	return "openai"
 }
 
+// recordAgentConsumeLog 把分站(代理)消费写入独立的 agent_logs 并累计统计，
+// 不写主站 logs / 不动 users。扣费由 SettleBilling→AgentFunding 在主流程完成，此处只记账。
+func recordAgentConsumeLog(relayInfo *relaycommon.RelayInfo, modelName, content string, promptTokens, completionTokens, quota, useTimeSeconds int) {
+	model.RecordAgentLog(&model.AgentLog{
+		AgentId:          relayInfo.AgentId,
+		ModelName:        modelName,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		Quota:            quota,
+		ChannelId:        relayInfo.ChannelId,
+		UseTimeSeconds:   useTimeSeconds,
+		IsStream:         relayInfo.IsStream,
+		Content:          content,
+	})
+	model.UpdateAgentUsed(relayInfo.AgentId, quota)
+}
+
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
 	originUsage := usage
 	if usage == nil {
@@ -464,18 +481,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	if relayInfo.IsAgentRequest {
 		// 分站消费流水落到独立的 agent_logs 表，不污染主站 logs。
-		model.RecordAgentLog(&model.AgentLog{
-			AgentId:          relayInfo.AgentId,
-			ModelName:        logModel,
-			PromptTokens:     summary.PromptTokens,
-			CompletionTokens: summary.CompletionTokens,
-			Quota:            summary.Quota,
-			ChannelId:        relayInfo.ChannelId,
-			UseTimeSeconds:   int(summary.UseTimeSeconds),
-			IsStream:         relayInfo.IsStream,
-			Content:          logContent,
-		})
-		model.UpdateAgentUsed(relayInfo.AgentId, summary.Quota)
+		recordAgentConsumeLog(relayInfo, logModel, logContent, summary.PromptTokens, summary.CompletionTokens, summary.Quota, int(summary.UseTimeSeconds))
 	} else {
 		model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 			ChannelId:        relayInfo.ChannelId,

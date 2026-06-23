@@ -39,10 +39,8 @@ func AgentAuth() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusForbidden, "分站已被禁用")
 			return
 		}
-		if agent.Balance <= 0 {
-			abortWithOpenAiMessage(c, http.StatusForbidden, "分站批发额度不足，请充值")
-			return
-		}
+		// 注意：不在此处拒绝余额<=0。AgentAuth 同时用于 relay 与 /api/agent-self(查余额)，
+		// 余额为 0 时仍需允许查询；relay 的余额保护由计费层预扣(AgentFunding.PreConsume)兜底。
 
 		// ---- 伪装用户上下文（id 固定 0，防止撞号真实用户）----
 		c.Set(string(constant.ContextKeyUserId), 0)

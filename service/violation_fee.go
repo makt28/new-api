@@ -123,6 +123,18 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		return false
 	}
 
+	// 分站请求：违规费从代理批发额度扣、写 agent_logs；不能走 user/token(=0)，否则代理可绕过违规费。
+	if relayInfo.IsAgentRequest {
+		if err := model.DecreaseAgentBalance(relayInfo.AgentId, feeQuota); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("failed to charge agent violation fee: %s", err.Error()))
+			return false
+		}
+		model.UpdateChannelUsedQuota(relayInfo.ChannelId, feeQuota)
+		useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
+		recordAgentConsumeLog(relayInfo, relayInfo.OriginModelName, "Violation fee charged", 0, 0, feeQuota, int(useTimeSeconds))
+		return true
+	}
+
 	if err := PostConsumeQuota(relayInfo, feeQuota, 0, true); err != nil {
 		logger.LogError(ctx, fmt.Sprintf("failed to charge violation fee: %s", err.Error()))
 		return false
