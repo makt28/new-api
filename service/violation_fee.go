@@ -124,8 +124,9 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 	}
 
 	// 分站请求：违规费从代理批发额度扣、写 agent_logs；不能走 user/token(=0)，否则代理可绕过违规费。
+	// 用无条件扣减：失败路径的预扣退还是异步的，若用条件扣减会因退还未到账而漏扣罚金（被绕过）。
 	if relayInfo.IsAgentRequest {
-		if err := model.DecreaseAgentBalance(relayInfo.AgentId, feeQuota); err != nil {
+		if err := model.ForceDecreaseAgentBalance(relayInfo.AgentId, feeQuota); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("failed to charge agent violation fee: %s", err.Error()))
 			return false
 		}

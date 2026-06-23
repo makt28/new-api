@@ -141,6 +141,18 @@ func DecreaseAgentBalance(id int, quota int) error {
 	return nil
 }
 
+// ForceDecreaseAgentBalance 无条件扣减批发额度（用于违规罚扣）。
+// 允许余额暂时为负：违规费是惩罚，且失败路径的预扣退还是异步的，
+// 不能因为退还尚未到账就漏扣罚金（否则可被绕过）。
+func ForceDecreaseAgentBalance(id int, quota int) error {
+	if quota <= 0 {
+		return nil
+	}
+	return DB.Model(&Agent{}).
+		Where("id = ?", id).
+		Update("balance", gorm.Expr("balance - ?", quota)).Error
+}
+
 // IncreaseAgentBalance 原子增加批发额度（充值 / 退还预扣）。
 func IncreaseAgentBalance(id int, quota int) error {
 	if quota < 0 {

@@ -171,6 +171,7 @@ func SetRelayRouter(router *gin.Engine) {
 	agentRelayRouter.Use(middleware.RouteTag("relay"))
 	agentRelayRouter.Use(middleware.SystemPerformanceCheck())
 	agentRelayRouter.Use(middleware.AgentAuth())
+	agentRelayRouter.Use(middleware.AgentBalanceRequired())
 	agentRelayRouter.Use(middleware.Distribute())
 	{
 		agentRelayRouter.POST("/chat/completions", func(c *gin.Context) {

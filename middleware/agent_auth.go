@@ -71,6 +71,25 @@ func AgentAuth() func(c *gin.Context) {
 	}
 }
 
+// AgentBalanceRequired 仅用于 relay 路径的批发额度门槛：余额<=0 直接拒绝，
+// 避免免费/取整/分层导致预扣为 0 时仍把响应交付出去。
+// 不放进 AgentAuth，是为了让 /api/agent-self 在零余额时仍可查询。
+func AgentBalanceRequired() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		agentId := common.GetContextKeyInt(c, constant.ContextKeyAgentId)
+		agent, err := model.GetAgentById(agentId)
+		if err != nil || agent == nil {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "分站不存在")
+			return
+		}
+		if agent.Balance <= 0 {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "分站批发额度不足，请充值")
+			return
+		}
+		c.Next()
+	}
+}
+
 func clampToInt(v int64) int {
 	const maxInt = int64(^uint(0) >> 1)
 	if v > maxInt {
