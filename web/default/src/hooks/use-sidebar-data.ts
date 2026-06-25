@@ -29,6 +29,7 @@ import {
   Radio,
   ServerCog,
   Settings,
+  Store,
   Ticket,
   User,
   Users,
@@ -137,6 +138,12 @@ export function useSidebarData(): SidebarData {
             title: t('Redemption Codes'),
             url: '/redemption-codes',
             icon: Ticket,
+          },
+          {
+            title: t('代理 / 分站'),
+            url: '/agents',
+            icon: Store,
+            requiredRole: ROLE.SUPER_ADMIN,
           },
           {
             title: t('Subscriptions'),
