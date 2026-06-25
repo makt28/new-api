@@ -30,7 +30,8 @@ export interface Agent {
   balance: number // 批发额度池，quota 单位
   used_quota: number // 累计消耗，quota 单位
   request_count: number
-  group: string
+  group: string // 默认批发分组
+  groups: string // 额外可用分组(逗号分隔)，空=与普通用户一致
   model_limits: string // 逗号分隔，空=不限
   remark: string
   created_at: number
@@ -68,6 +69,7 @@ export type AgentFormData = {
   id?: number
   name: string
   group: string
+  groups?: string
   domain?: string
   model_limits?: string
   remark?: string

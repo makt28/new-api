@@ -8,9 +8,36 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
+
+// headerAgentGroup 是分站按请求指定批发分组的头。分站(可信中转)据自身档位/模型映射设置，
+// 主站再校验该分组在代理可用集合内。注意：分站侧必须剥离客户端伪造的同名头，避免终端用户越权。
+const headerAgentGroup = "New-Api-Group"
+
+// agentGroupAllowed 判断请求想用的分组是否在代理可用集合内：
+//   - 等于默认分组 agent.Group → 允许；
+//   - 配了显式白名单 Groups → 仅白名单内允许（auto 需显式列入）；
+//   - 未配白名单 → 与普通用户一致：全局可选分组 + auto。
+func agentGroupAllowed(agent *model.Agent, g string) bool {
+	if g == agent.Group {
+		return true
+	}
+	if list := agent.GroupsList(); len(list) > 0 {
+		for _, x := range list {
+			if x == g {
+				return true
+			}
+		}
+		return false
+	}
+	if g == "auto" {
+		return true
+	}
+	return service.GroupInUserUsableGroups(agent.Group, g)
+}
 
 // AgentAuth 校验分站（代理）密钥，并把代理身份伪装成 token+user 上下文，
 // 以便完整复用现有 relay 引擎（Distribute / controller.Relay / 计费）。
@@ -42,10 +69,20 @@ func AgentAuth() func(c *gin.Context) {
 		// 注意：不在此处拒绝余额<=0。AgentAuth 同时用于 relay 与 /api/agent-self(查余额)，
 		// 余额为 0 时仍需允许查询；relay 的余额保护由计费层预扣(AgentFunding.PreConsume)兜底。
 
+		// ---- 选定使用分组：分站可通过 New-Api-Group 头按请求指定，校验在可用集合内；否则用默认 ----
+		usingGroup := agent.Group
+		if reqGroup := strings.TrimSpace(c.Request.Header.Get(headerAgentGroup)); reqGroup != "" {
+			if !agentGroupAllowed(agent, reqGroup) {
+				abortWithOpenAiMessage(c, http.StatusForbidden, "分组 "+reqGroup+" 不在该分站可用范围内")
+				return
+			}
+			usingGroup = reqGroup
+		}
+
 		// ---- 伪装用户上下文（id 固定 0，防止撞号真实用户）----
 		c.Set(string(constant.ContextKeyUserId), 0)
 		common.SetContextKey(c, constant.ContextKeyUserGroup, agent.Group)
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, agent.Group)
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
 		common.SetContextKey(c, constant.ContextKeyUserQuota, clampToInt(agent.Balance))
 		common.SetContextKey(c, constant.ContextKeyUserStatus, common.UserStatusEnabled)
 		common.SetContextKey(c, constant.ContextKeyUserName, "agent:"+agent.Name)
@@ -55,7 +92,7 @@ func AgentAuth() func(c *gin.Context) {
 		common.SetContextKey(c, constant.ContextKeyTokenId, 0)
 		common.SetContextKey(c, constant.ContextKeyTokenKey, "")
 		common.SetContextKey(c, constant.ContextKeyTokenUnlimited, true)
-		common.SetContextKey(c, constant.ContextKeyTokenGroup, agent.Group)
+		common.SetContextKey(c, constant.ContextKeyTokenGroup, usingGroup)
 		if agent.ModelLimits != "" {
 			c.Set(string(constant.ContextKeyTokenModelLimitEnabled), true)
 			c.Set(string(constant.ContextKeyTokenModelLimit), agent.GetModelLimitsMap())

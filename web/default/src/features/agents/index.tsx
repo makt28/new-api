@@ -60,6 +60,7 @@ const usd = (quota: number) => `$${(quota / QUOTA_PER_UNIT).toFixed(2)}`
 const emptyForm: AgentFormData = {
   name: '',
   group: 'default',
+  groups: '',
   domain: '',
   model_limits: '',
   remark: '',
@@ -116,6 +117,7 @@ export function Agents() {
     setForm({
       name: a.name,
       group: a.group,
+      groups: a.groups,
       domain: a.domain,
       model_limits: a.model_limits,
       remark: a.remark,
@@ -344,12 +346,23 @@ export function Agents() {
               />
             </div>
             <div className='space-y-1'>
-              <Label>批发分组 group</Label>
+              <Label>默认批发分组 group</Label>
               <Input
                 value={form.group}
                 onChange={(e) => setForm({ ...form, group: e.target.value })}
                 placeholder='default'
               />
+            </div>
+            <div className='space-y-1'>
+              <Label>可用分组 groups（逗号分隔，留空=与普通用户一致）</Label>
+              <Input
+                value={form.groups ?? ''}
+                onChange={(e) => setForm({ ...form, groups: e.target.value })}
+                placeholder='vip,cheap,stable'
+              />
+              <p className='text-muted-foreground text-xs'>
+                分站可在此集合内按请求头 New-Api-Group 选组；留空则放行全局可选分组。
+              </p>
             </div>
             <div className='space-y-1'>
               <Label>域名（备注用，可选）</Label>

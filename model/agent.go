@@ -23,7 +23,8 @@ type Agent struct {
 	Balance      int64          `json:"balance" gorm:"type:bigint;default:0"`          // 批发额度池（quota 单位）
 	UsedQuota    int64          `json:"used_quota" gorm:"type:bigint;default:0"`       // 累计消耗额度
 	RequestCount int            `json:"request_count" gorm:"type:int;default:0"`       // 累计请求数
-	Group        string         `json:"group" gorm:"type:varchar(64);default:'default'"` // 批发分组，决定可用渠道与价格
+	Group        string         `json:"group" gorm:"type:varchar(64);default:'default'"` // 默认批发分组（请求未指定时用它）
+	Groups       string         `json:"groups" gorm:"type:varchar(255)"`                 // 额外可用分组(逗号分隔)，空=与普通用户一致(全局可选分组)；非空=显式白名单
 	ModelLimits  string         `json:"model_limits" gorm:"type:text"`                   // 允许模型，逗号分隔，空=不限制
 	Remark       string         `json:"remark" gorm:"type:varchar(255)" validate:"max=255"`
 	CreatedAt    int64          `json:"created_at" gorm:"autoCreateTime"`
@@ -49,6 +50,17 @@ type AgentLog struct {
 	IsStream         bool   `json:"is_stream"`
 	Content          string `json:"content" gorm:"type:text"`
 	CreatedAt        int64  `json:"created_at" gorm:"autoCreateTime;index"`
+}
+
+// GroupsList 返回 Groups 字段里配置的额外可用分组（去空白）。空字段返回空切片。
+func (agent *Agent) GroupsList() []string {
+	out := make([]string, 0)
+	for _, g := range strings.Split(agent.Groups, ",") {
+		if g = strings.TrimSpace(g); g != "" {
+			out = append(out, g)
+		}
+	}
+	return out
 }
 
 func (agent *Agent) GetModelLimitsMap() map[string]bool {
