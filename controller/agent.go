@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -172,4 +173,37 @@ func GetAgentSelf(c *gin.Context) {
 		"group":         agent.Group,
 		"status":        agent.Status,
 	})
+}
+
+// GetAgentSelfGroups 供分站程序拉取本代理可用的分组清单（用 AgentKey 调用，经 AgentAuth 鉴权）。
+// 返回与 middleware.agentGroupAllowed 同一套可用集合，分站据此给管理员做分组下拉，
+// 不再手填分组字符串（填错即 403）。ratio 为该代理使用此分组的批发倍率，供分站定零售加价参考。
+func GetAgentSelfGroups(c *gin.Context) {
+	agentId := common.GetContextKeyInt(c, constant.ContextKeyAgentId)
+	if agentId == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "无效的分站身份"})
+		return
+	}
+	agent, err := model.GetAgentById(agentId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	usable := service.GetAgentUsableGroups(agent.Group, agent.GroupsList())
+	type groupInfo struct {
+		Name      string  `json:"name"`
+		Desc      string  `json:"desc"`
+		Ratio     float64 `json:"ratio"`
+		IsDefault bool    `json:"is_default"`
+	}
+	groups := make([]groupInfo, 0, len(usable))
+	for name, desc := range usable {
+		groups = append(groups, groupInfo{
+			Name:      name,
+			Desc:      desc,
+			Ratio:     service.GetUserGroupRatio(agent.Group, name),
+			IsDefault: name == agent.Group,
+		})
+	}
+	common.ApiSuccess(c, groups)
 }

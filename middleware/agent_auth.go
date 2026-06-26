@@ -22,21 +22,8 @@ const headerAgentGroup = "New-Api-Group"
 //   - 配了显式白名单 Groups → 仅白名单内允许（auto 需显式列入）；
 //   - 未配白名单 → 与普通用户一致：全局可选分组 + auto。
 func agentGroupAllowed(agent *model.Agent, g string) bool {
-	if g == agent.Group {
-		return true
-	}
-	if list := agent.GroupsList(); len(list) > 0 {
-		for _, x := range list {
-			if x == g {
-				return true
-			}
-		}
-		return false
-	}
-	if g == "auto" {
-		return true
-	}
-	return service.GroupInUserUsableGroups(agent.Group, g)
+	_, ok := service.GetAgentUsableGroups(agent.Group, agent.GroupsList())[g]
+	return ok
 }
 
 // AgentAuth 校验分站（代理）密钥，并把代理身份伪装成 token+user 上下文，

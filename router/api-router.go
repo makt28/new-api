@@ -319,6 +319,7 @@ func SetApiRouter(router *gin.Engine) {
 		agentSelfRoute.Use(middleware.AgentAuth())
 		{
 			agentSelfRoute.GET("/", controller.GetAgentSelf)
+			agentSelfRoute.GET("/groups", controller.GetAgentSelfGroups)
 		}
 
 		logRoute := apiRouter.Group("/log")

@@ -41,6 +41,29 @@ func GroupInUserUsableGroups(userGroup, groupName string) bool {
 	return ok
 }
 
+// GetAgentUsableGroups 返回某代理(分站)可用的分组集合(组名->描述)。
+// 与 middleware.agentGroupAllowed 同一套判定，二者共用以保证"查得到=用得了"：
+//   - 默认组 agentGroup 始终可用；
+//   - 配了显式白名单 groupsList → 仅白名单(auto 需显式列入)；
+//   - 未配白名单 → 与普通用户一致：GetUserUsableGroups(agentGroup) + auto。
+func GetAgentUsableGroups(agentGroup string, groupsList []string) map[string]string {
+	result := make(map[string]string)
+	if agentGroup != "" {
+		result[agentGroup] = setting.GetUsableGroupDescription(agentGroup)
+	}
+	if len(groupsList) > 0 {
+		for _, g := range groupsList {
+			result[g] = setting.GetUsableGroupDescription(g)
+		}
+		return result
+	}
+	for g, desc := range GetUserUsableGroups(agentGroup) {
+		result[g] = desc
+	}
+	result["auto"] = setting.GetUsableGroupDescription("auto")
+	return result
+}
+
 // GetUserAutoGroup 根据用户分组获取自动分组设置
 func GetUserAutoGroup(userGroup string) []string {
 	groups := GetUserUsableGroups(userGroup)
