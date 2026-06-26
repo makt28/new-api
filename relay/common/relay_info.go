@@ -512,6 +512,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		info.RequestURLPath = "/v1" + info.RequestURLPath
 	}
 
+	// 分站（代理）relay 入口为 /agentapi/v1/*，复用同一 relay 引擎。上游 URL 由 ChannelBaseUrl
+	// + RequestURLPath 拼成，故须剥掉 /agentapi 前缀，否则会请求到 base_url + /agentapi/v1/...
+	// （正常上游不存在该路径，返回 HTML/404，表现为 bad_response_body「invalid character '<'」）。
+	if strings.HasPrefix(c.Request.URL.Path, "/agentapi/") {
+		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/agentapi")
+	}
+
 	userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)
 	if ok {
 		info.UserSetting = userSetting
